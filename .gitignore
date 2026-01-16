@@ -47,3 +47,8 @@ test
 prompt
 
 server.log
+# unnecessary project folders
+upload/
+skills/
+examples/
+mini-services/
