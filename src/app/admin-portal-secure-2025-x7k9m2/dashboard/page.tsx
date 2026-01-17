@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-misused-promises */
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -117,8 +116,9 @@ export default function AdminDashboard() {
   });
 
   // Playlist parsing state
-  const [parsedChannels, setParsedChannels] = useState<any[]>([]);
-  const [selectedChannels, setSelectedChannels] = useState<any[]>([]);
+  const [parsedChannels, setParsedChannels] = useState<PlaylistChannel[]>([]);
+  const [selectedChannels, setSelectedChannels] = useState<PlaylistChannel[]>([]);
+  const [createChannelsFromPlaylist, setCreateChannelsFromPlaylist] = useState(false);
   const [loadingChannels, setLoadingChannels] = useState(false);
 
   // Server form state
@@ -170,16 +170,28 @@ export default function AdminDashboard() {
     try {
       if (activeTab === 'streams') {
         const response = await fetch('/api/streams');
+        if (!response.ok) {
+          setStreams([]);
+          throw new Error('Failed to fetch streams');
+        }
         const data = await response.json();
-        setStreams(data);
+        setStreams(Array.isArray(data) ? data : []);
       } else if (activeTab === 'users') {
         const response = await fetch('/api/users');
+        if (!response.ok) {
+          setUsers([]);
+          throw new Error('Failed to fetch users');
+        }
         const data = await response.json();
-        setUsers(data);
+        setUsers(Array.isArray(data) ? data : []);
       } else if (activeTab === 'ads') {
         const response = await fetch('/api/ads');
+        if (!response.ok) {
+          setAds([]);
+          throw new Error('Failed to fetch ads');
+        }
         const data = await response.json();
-        setAds(data);
+        setAds(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -198,6 +210,64 @@ export default function AdminDashboard() {
   const handleCreateStream = async () => {
     try {
       const adminUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
+      if (createChannelsFromPlaylist) {
+        if (!streamForm.playlistUrl) {
+          toast.error('الرجا إدخال رابط ملف M3U');
+          return;
+        }
+
+        if (parsedChannels.length === 0) {
+          toast.error('الرجا تحليل ملف القائمة أولاً');
+          return;
+        }
+
+        const channelsToCreate =
+          selectedChannels.length > 0 ? selectedChannels : parsedChannels;
+
+        const streamPromises = channelsToCreate.map(async (channel, index) => {
+          const response = await fetch('/api/streams', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: channel.channelName || `قناة ${index + 1}`,
+              description: streamForm.description,
+              thumbnail: channel.logo || streamForm.thumbnail,
+              categoryId: streamForm.categoryId,
+              published: streamForm.published,
+              playlistUrl: streamForm.playlistUrl,
+              authorId: adminUser.id,
+            }),
+          });
+
+          if (!response.ok) throw new Error('Failed to create stream');
+          const stream = await response.json();
+
+          const serverResponse = await fetch('/api/servers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              streamId: stream.id,
+              name: channel.channelName || `القناة ${index + 1}`,
+              url: channel.url,
+              priority: 0,
+              channelId: channel.channelId,
+              channelName: channel.channelName,
+              channelLogo: channel.logo,
+            }),
+          });
+
+          if (!serverResponse.ok) throw new Error('Failed to create server');
+        });
+
+        await Promise.all(streamPromises);
+
+        toast.success(`تم إنشاء ${channelsToCreate.length} قناة من القائمة`);
+        setStreamFormOpen(false);
+        resetStreamForm();
+        fetchData();
+        return;
+      }
+
       const response = await fetch('/api/streams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -303,6 +373,7 @@ export default function AdminDashboard() {
     });
     setParsedChannels([]);
     setSelectedChannels([]);
+    setCreateChannelsFromPlaylist(false);
   };
 
   // Parse M3U playlist
@@ -909,6 +980,18 @@ export default function AdminDashboard() {
                               <p className="text-xs text-slate-500">
                                 يمكنك إضافة ملف قائمة M3U واحد بدلاً من إضافة روابط فردية
                               </p>
+                              <div className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 p-3 text-sm text-slate-200">
+                                <div>
+                                  <p className="font-semibold">إنشاء قناة لكل عنصر في القائمة</p>
+                                  <p className="text-xs text-slate-400">
+                                    سيُنشئ النظام قناة منفصلة لكل رابط داخل ملف M3U مع الشعار إن توفر
+                                  </p>
+                                </div>
+                                <Switch
+                                  checked={createChannelsFromPlaylist}
+                                  onCheckedChange={setCreateChannelsFromPlaylist}
+                                />
+                              </div>
                               <div className="flex gap-2">
                                 <Input
                                   id="playlist"
