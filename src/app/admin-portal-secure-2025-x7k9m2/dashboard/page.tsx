@@ -153,6 +153,10 @@ export default function AdminDashboard() {
     active: true,
   });
 
+  const safeStreams = Array.isArray(streams) ? streams : [];
+  const safeUsers = Array.isArray(users) ? users : [];
+  const safeAds = Array.isArray(ads) ? ads : [];
+
   useEffect(() => {
     checkAuth();
     fetchData();
@@ -1181,7 +1185,7 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {streams.map((stream) => (
+                      {safeStreams.map((stream) => (
                         <Card key={stream.id} className="bg-slate-800/50 border-slate-700">
                           <CardHeader>
                             <div className="flex items-start justify-between">
@@ -1417,7 +1421,7 @@ export default function AdminDashboard() {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-700">
-                              {users.map((user) => (
+                              {safeUsers.map((user) => (
                                 <tr key={user.id} className="hover:bg-slate-900/30">
                                   <td className="px-6 py-4 text-sm text-white">
                                     {user.name || '-'}
@@ -1573,7 +1577,7 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {ads.map((ad) => (
+                      {safeAds.map((ad) => (
                         <Card key={ad.id} className="bg-slate-800/50 border-slate-700">
                           <CardHeader>
                             <div className="flex items-start justify-between">
